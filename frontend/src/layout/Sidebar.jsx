@@ -17,17 +17,24 @@ import PolicyIcon from '@mui/icons-material/Policy'
 import SettingsIcon from '@mui/icons-material/Settings'
 import { NavLink, useLocation } from 'react-router-dom'
 
-const navItems = [
-  { label: 'Overview', icon: <DashboardIcon />, to: '/' },
-  { label: 'Courses', icon: <SchoolIcon />, to: '/courses' },
-  { label: 'Assignments', icon: <AssignmentIcon />, to: '/assignments' },
-  { label: 'Submissions', icon: <UploadFileIcon />, to: '/submissions' },
-  { label: 'Integrity', icon: <PolicyIcon />, to: '/integrity' },
-  { label: 'Settings', icon: <SettingsIcon />, to: '/settings' },
-]
-
-function Sidebar({ open, onClose, variant, drawerWidth }) {
+function Sidebar({ open, onClose, variant, drawerWidth, user }) {
   const location = useLocation()
+  const isAdmin = Boolean(user?.is_superuser)
+  const isInstructor = Boolean(user?.is_instructor) || isAdmin
+
+  const navItems = [
+    { label: 'Overview', icon: <DashboardIcon />, to: '/' },
+    { label: 'My Courses', icon: <SchoolIcon />, to: '/my-courses' },
+    ...(isInstructor ? [{ label: 'Course Catalog', icon: <SchoolIcon />, to: '/catalog' }] : []),
+    ...(isAdmin ? [{ label: 'Course Admin', icon: <SchoolIcon />, to: '/courses' }] : []),
+    ...(isAdmin ? [{ label: 'Admin Users', icon: <SettingsIcon />, to: '/admin/users' }] : []),
+    ...(isAdmin ? [{ label: 'Admin Groups', icon: <SettingsIcon />, to: '/admin/groups' }] : []),
+    ...(isAdmin ? [{ label: 'Admin Languages', icon: <SettingsIcon />, to: '/admin/languages' }] : []),
+    { label: 'Assignments', icon: <AssignmentIcon />, to: '/assignments' },
+    { label: 'Submissions', icon: <UploadFileIcon />, to: '/submissions' },
+    { label: 'Integrity', icon: <PolicyIcon />, to: '/integrity' },
+    { label: 'Settings', icon: <SettingsIcon />, to: '/settings' },
+  ]
 
   return (
     <Drawer
@@ -43,6 +50,7 @@ function Sidebar({ open, onClose, variant, drawerWidth }) {
           boxSizing: 'border-box',
           px: 2,
           py: 3,
+          overflow: 'hidden',
         },
       }}
     >
@@ -51,10 +59,33 @@ function Sidebar({ open, onClose, variant, drawerWidth }) {
           <Typography variant="overline" color="text.secondary">
             Workspace
           </Typography>
-          <Typography variant="h6">Autograder</Typography>
+          <Typography variant="h6">Gradeforge</Typography>
         </Box>
         <Divider />
-        <List sx={{ flex: 1 }}>
+        <List
+          sx={{
+            flex: 1,
+            overflowY: 'auto',
+            pr: 0.5,
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(122,0,38,0.42) transparent',
+            '&::-webkit-scrollbar': {
+              width: 8,
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(122,0,38,0.34)',
+              borderRadius: 999,
+              border: '2px solid transparent',
+              backgroundClip: 'content-box',
+            },
+            '&:hover::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(122,0,38,0.5)',
+            },
+          }}
+        >
           {navItems.map((item, index) => (
             <ListItemButton
               key={item.label}

@@ -49,11 +49,18 @@ class UserProfile(BaseModel):
         related_name='profile',
     )
     display_name = models.CharField(max_length=200, blank=True)
+    first_name = models.CharField(max_length=150)
+    middle_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150)
+    cwid = models.CharField(max_length=32, unique=True)
     canvas_user_id = models.CharField(max_length=100, blank=True, null=True)
     timezone = models.CharField(max_length=64, blank=True)
 
     def __str__(self):
-        return self.display_name or self.user.get_username()
+        if self.display_name:
+            return self.display_name
+        full_name = " ".join(part for part in [self.first_name, self.middle_name, self.last_name] if part)
+        return full_name or self.user.get_username()
 
 
 class Organization(BaseModel):

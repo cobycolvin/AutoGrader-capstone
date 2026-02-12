@@ -13,9 +13,7 @@ const getCookie = (name) => {
 const api = axios.create({
   baseURL: API_BASE,
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: {},
   xsrfCookieName: 'csrftoken',
   xsrfHeaderName: 'X-CSRFToken',
 })
@@ -39,12 +37,16 @@ export const apiRequest = async (path, options = {}) => {
       ? JSON.parse(options.body)
       : options.body
     : options.data
+  const isFormData = typeof FormData !== 'undefined' && data instanceof FormData
 
   if (isWriteMethod(normalizedMethod)) {
     const csrfToken = await ensureCsrfToken()
     if (csrfToken) {
       headers['X-CSRFToken'] = csrfToken
     }
+  }
+  if (!isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
   }
 
   try {
@@ -66,6 +68,50 @@ export const apiRequest = async (path, options = {}) => {
     err.payload = error?.response?.data
     throw err
   }
+}
+
+export const downloadFile = async (path, options = {}) => {
+  const method = options.method || 'GET'
+  const normalizedMethod = method.toLowerCase()
+  const headers = options.headers || {}
+  const data = options.body ?? options.data
+  const isFormData = typeof FormData !== 'undefined' && data instanceof FormData
+
+  if (isWriteMethod(normalizedMethod)) {
+    const csrfToken = await ensureCsrfToken()
+    if (csrfToken) {
+      headers['X-CSRFToken'] = csrfToken
+    }
+  }
+  if (!isFormData && data && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  const response = await api.request({
+    url: path,
+    method: normalizedMethod,
+    data,
+    headers,
+    responseType: 'blob',
+  })
+
+  let filename = options.filename
+  const disposition = response.headers?.['content-disposition']
+  if (!filename && disposition) {
+    const match = disposition.match(/filename="?([^"]+)"?/)
+    if (match) {
+      filename = match[1]
+    }
+  }
+  const blob = response.data
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename || 'download'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }
 
 export { API_BASE }

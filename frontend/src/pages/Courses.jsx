@@ -15,8 +15,9 @@ import {
   Typography,
 } from '@mui/material'
 import { DataGrid, GridToolbar } from '@mui/x-data-grid'
-import { AddRounded, DeleteRounded, EditRounded } from '@mui/icons-material'
+import { AddRounded } from '@mui/icons-material'
 import { apiRequest } from '../api/client.js'
+import RowActionsMenu from '../components/RowActionsMenu.jsx'
 
 const emptyCourse = {
   code: '',
@@ -140,28 +141,13 @@ function CoursesPage() {
       {
         field: 'actions',
         headerName: 'Actions',
-        minWidth: 160,
+        minWidth: 110,
         sortable: false,
         renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => openEdit(params.row)}
-              startIcon={<EditRounded />}
-            >
-              Edit
-            </Button>
-            <Button
-              size="small"
-              color="error"
-              variant="outlined"
-              onClick={() => requestDelete(params.row)}
-              startIcon={<DeleteRounded />}
-            >
-              Delete
-            </Button>
-          </Stack>
+          <RowActionsMenu
+            onEdit={() => openEdit(params.row)}
+            onDelete={() => requestDelete(params.row)}
+          />
         ),
       },
     ],
@@ -174,17 +160,9 @@ function CoursesPage() {
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          justifyContent="flex-end"
         >
-          <Box>
-            <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -0.8 }}>
-              Courses
-            </Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Manage all courses in one place.
-            </Typography>
-          </Box>
           <Button variant="contained" startIcon={<AddRounded />} onClick={openCreate}>
             New course
           </Button>

@@ -4,10 +4,11 @@ import { useMemo, useState } from 'react'
 import Footer from './Footer.jsx'
 import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
+import AppBreadcrumbs from './AppBreadcrumbs.jsx'
 
 const drawerWidth = 260
 
-function AppLayout({ children, status }) {
+function AppLayout({ children, user, onLogout, busy, mode, onToggleMode }) {
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -24,12 +25,21 @@ function AppLayout({ children, status }) {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Navbar onMenuClick={handleMenuClick} drawerWidth={drawerWidth} status={status} />
+      <Navbar
+        onMenuClick={handleMenuClick}
+        drawerWidth={drawerWidth}
+        user={user}
+        onLogout={onLogout}
+        busy={busy}
+        mode={mode}
+        onToggleMode={onToggleMode}
+      />
       <Sidebar
         open={isDesktop ? true : mobileOpen}
         onClose={handleClose}
         variant={drawerVariant}
         drawerWidth={drawerWidth}
+        user={user}
       />
       <Box
         component="main"
@@ -46,7 +56,10 @@ function AppLayout({ children, status }) {
       >
         <Toolbar sx={{ minHeight: 72 }} />
         <Box sx={{ position: 'relative', zIndex: 1, flex: 1, pb: 6 }}>
-          <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>{children}</Box>
+          <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
+            <AppBreadcrumbs />
+            {children}
+          </Box>
         </Box>
         <Footer />
       </Box>

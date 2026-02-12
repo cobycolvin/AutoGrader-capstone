@@ -26,6 +26,11 @@ from .courses import (
     GroupMember,
     GroupSet,
 )
+from .calendar import (
+    CalendarEvent,
+    CalendarEventScope,
+    CalendarEventType,
+)
 from .grading import (
     Grade,
     GradingExitStatus,
@@ -70,6 +75,9 @@ __all__ = [
     'Group',
     'GroupMember',
     'GroupSet',
+    'CalendarEvent',
+    'CalendarEventScope',
+    'CalendarEventType',
     'Grade',
     'GradingExitStatus',
     'GradingRun',

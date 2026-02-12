@@ -20,7 +20,7 @@ class SubmissionStatus(models.TextChoices):
 class ProgrammingLanguage(BaseModel):
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=50, unique=True)
-    docker_image = models.CharField(max_length=200)
+    docker_image = models.CharField(max_length=200, blank=True)
     compile_cmd = models.TextField(blank=True)
     run_cmd_template = models.TextField()
     is_enabled = models.BooleanField(default=True)
@@ -33,6 +33,7 @@ class Assignment(BaseModel):
     course = models.ForeignKey('autograder.Course', on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    instructions = models.TextField(blank=True)
     language = models.ForeignKey(
         ProgrammingLanguage,
         null=True,
@@ -48,6 +49,9 @@ class Assignment(BaseModel):
         choices=AssignmentGroupMode.choices,
         default=AssignmentGroupMode.PER_ASSIGNMENT,
     )
+    submission_file_types = models.JSONField(default=list, blank=True)
+    submission_max_size_mb = models.PositiveIntegerField(default=25)
+    submission_max_attempts = models.PositiveIntegerField(default=3)
 
     class Meta:
         indexes = [

@@ -19,7 +19,7 @@ function Footer() {
           justifyContent="space-between"
         >
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            CAPSTON
+            Gradeforge
           </Typography>
 
           <Stack direction="row" spacing={2} alignItems="center">
@@ -37,9 +37,14 @@ function Footer() {
 
         <Divider sx={{ my: 2 }} />
 
-        <Typography variant="caption" color="text.secondary">
-          © {new Date().getFullYear()} CAPSTON
-        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+          <Typography variant="caption" color="text.secondary">
+            © {new Date().getFullYear()} Gradeforge
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Dedicated to Dr. Lon Smith
+          </Typography>
+        </Stack>
       </Container>
     </Box>
   )

@@ -2,16 +2,19 @@ import { createTheme } from '@mui/material/styles'
 
 const getDesignTokens = (mode = 'light') => {
   const isDark = mode === 'dark'
+  const brandMaroon = '#7A0026'
+  const brandMaroonDark = '#5A001C'
+  const brandMaroonLight = '#A4345A'
 
   return {
     palette: {
       mode,
 
-      // From your UI: chart blue + top-bar blue
+      // ULM-inspired maroon brand system
       primary: {
-        main: '#3878D0',        // chart / accent blue
-        dark: '#2B5BB9',        // top bar blue (light screenshot)
-        light: '#73A3F0',
+        main: brandMaroon,
+        dark: brandMaroonDark,
+        light: brandMaroonLight,
         contrastText: '#FFFFFF',
       },
 
@@ -40,8 +43,8 @@ const getDesignTokens = (mode = 'light') => {
       divider: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
 
       action: {
-        hover: isDark ? 'rgba(56,120,208,0.10)' : 'rgba(56,120,208,0.08)',
-        selected: isDark ? 'rgba(56,120,208,0.18)' : 'rgba(56,120,208,0.12)',
+        hover: isDark ? 'rgba(122,0,38,0.20)' : 'rgba(122,0,38,0.08)',
+        selected: isDark ? 'rgba(122,0,38,0.30)' : 'rgba(122,0,38,0.14)',
       },
     },
 
@@ -65,11 +68,10 @@ const getDesignTokens = (mode = 'light') => {
         },
       },
 
-      // Top bar matches your screenshots (blue in light, dark navy in dark)
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: isDark ? '#1A232F' : '#2B5BB9',
+            backgroundColor: isDark ? '#1A232F' : brandMaroonDark,
             color: '#FFFFFF',
             borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : 'none',
             boxShadow: isDark
@@ -116,7 +118,7 @@ const getDesignTokens = (mode = 'light') => {
           containedPrimary: {
             boxShadow: isDark
               ? '0 10px 20px rgba(0,0,0,0.25)'
-              : '0 10px 20px rgba(43,91,185,0.25)',
+              : '0 10px 20px rgba(122,0,38,0.25)',
           },
         },
       },
@@ -129,8 +131,13 @@ const getDesignTokens = (mode = 'light') => {
           },
           filled: {
             backgroundColor: isDark
-              ? 'rgba(56,120,208,0.18)'
-              : 'rgba(56,120,208,0.12)',
+              ? 'rgba(122,0,38,0.30)'
+              : 'rgba(122,0,38,0.12)',
+            color: isDark ? '#E8EEF8' : '#0F172A',
+          },
+          filledPrimary: {
+            backgroundColor: brandMaroon,
+            color: '#FFFFFF',
           },
         },
       },

@@ -24,6 +24,7 @@ import {
   ShieldRounded,
 } from '@mui/icons-material'
 import { useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 
 // Pick any Unsplash photo you like (this one is clean + “tech/education” vibe).
 // Tip: change the `.../photo-XXXX` id to another Unsplash image.
@@ -61,7 +62,7 @@ function LoginPage({
           position: 'absolute',
           inset: 0,
           background:
-            'radial-gradient(circle at 18% 25%, rgba(56,120,208,0.18), transparent 48%), radial-gradient(circle at 78% 14%, rgba(248,136,32,0.14), transparent 40%), radial-gradient(circle at 60% 90%, rgba(56,120,208,0.10), transparent 52%)',
+            'radial-gradient(circle at 18% 25%, rgba(122,0,38,0.20), transparent 48%), radial-gradient(circle at 78% 14%, rgba(248,136,32,0.14), transparent 40%), radial-gradient(circle at 60% 90%, rgba(122,0,38,0.12), transparent 52%)',
           pointerEvents: 'none',
         }}
       />
@@ -120,7 +121,7 @@ function LoginPage({
                   </Stack>
 
                   <Typography variant="h3" sx={{ color: '#fff', fontWeight: 900, letterSpacing: -0.8 }}>
-                    CAPSTON
+                    Gradeforge
                   </Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.82)' }}>
                     A clean, focused workspace for your courses and assignments.
@@ -137,7 +138,7 @@ function LoginPage({
                 {/* Mobile header (since image is hidden) */}
                 <Box sx={{ display: { xs: 'block', md: 'none' } }}>
                   <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: -0.6 }}>
-                    CAPSTON
+                    Gradeforge
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 0.5 }}>
                     Sign in to continue.
@@ -246,6 +247,13 @@ function LoginPage({
 
                   <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
                     If you can’t access your account, contact your administrator.
+                  </Typography>
+
+                  <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                    New here?{' '}
+                    <Link component={RouterLink} to="/register" underline="hover" sx={{ fontWeight: 700 }}>
+                      Create an account
+                    </Link>
                   </Typography>
                 </Stack>
               </Stack>
