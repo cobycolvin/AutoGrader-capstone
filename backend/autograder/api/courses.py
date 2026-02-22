@@ -18,6 +18,7 @@ from ..serializers.courses import (
     UserLookupSerializer,
 )
 from ..serializers.grades import CourseGradeSummarySerializer
+from ..services.access import can_manage_course, is_course_member
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -57,12 +58,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     def people(self, request, pk=None):
         course = self.get_object()
         if not request.user.is_superuser:
-            is_member = Enrollment.objects.filter(
-                course=course,
-                user=request.user,
-                status=EnrollmentStatus.ACTIVE,
-            ).exists()
-            if not is_member:
+            if not is_course_member(request.user, course.id):
                 return Response({'detail': 'Not enrolled in this course.'}, status=status.HTTP_403_FORBIDDEN)
 
         enrollments = (
@@ -81,7 +77,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     )
     def enroll_person(self, request, pk=None):
         course = self.get_object()
-        if not self._can_manage_people(request.user, course):
+        if not can_manage_course(request.user, course):
             return Response({'detail': 'Not authorized to enroll people.'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = CourseEnrollmentCreateSerializer(data=request.data)
@@ -125,14 +121,9 @@ class CourseViewSet(viewsets.ModelViewSet):
         course = self.get_object()
         user = request.user
 
-        can_view_all = self._can_view_grades(user, course)
+        can_view_all = can_manage_course(user, course)
         if not can_view_all:
-            is_member = Enrollment.objects.filter(
-                course=course,
-                user=user,
-                status=EnrollmentStatus.ACTIVE,
-            ).exists()
-            if not is_member:
+            if not is_course_member(user, course.id):
                 return Response({'detail': 'Not authorized to view grades.'}, status=status.HTTP_403_FORBIDDEN)
 
         enrollments = (
@@ -192,7 +183,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Enrollment not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         is_self = request.user.is_authenticated and enrollment.user_id == request.user.id
-        if not is_self and not self._can_manage_people(request.user, course):
+        if not is_self and not can_manage_course(request.user, course):
             return Response({'detail': 'Not authorized to unenroll this user.'}, status=status.HTTP_403_FORBIDDEN)
 
         if enrollment.status != EnrollmentStatus.DROPPED:
@@ -210,7 +201,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     )
     def search_people(self, request, pk=None):
         course = self.get_object()
-        if not self._can_manage_people(request.user, course):
+        if not can_manage_course(request.user, course):
             return Response({'detail': 'Not authorized to search people.'}, status=status.HTTP_403_FORBIDDEN)
 
         query = (request.query_params.get('q') or '').strip()
@@ -233,30 +224,6 @@ class CourseViewSet(viewsets.ModelViewSet):
         )
         data = UserLookupSerializer(qs, many=True).data
         return Response(data, status=status.HTTP_200_OK)
-
-    def _can_manage_people(self, user, course):
-        if user.is_superuser:
-            return True
-        if user.groups.filter(name='Instructor').exists():
-            return True
-        return Enrollment.objects.filter(
-            course=course,
-            user=user,
-            status=EnrollmentStatus.ACTIVE,
-            role__in=[EnrollmentRole.INSTRUCTOR, EnrollmentRole.TA],
-        ).exists()
-
-    def _can_view_grades(self, user, course):
-        if user.is_superuser:
-            return True
-        if user.groups.filter(name='Instructor').exists():
-            return True
-        return Enrollment.objects.filter(
-            course=course,
-            user=user,
-            status=EnrollmentStatus.ACTIVE,
-            role__in=[EnrollmentRole.INSTRUCTOR, EnrollmentRole.TA],
-        ).exists()
 
 
 class MyCoursesView(generics.ListAPIView):

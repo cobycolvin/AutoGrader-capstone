@@ -60,7 +60,7 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
 import { Link as RouterLink, useParams } from 'react-router-dom'
-import { apiRequest, API_BASE, downloadFile } from '../api/client.js'
+import { apiRequest, API_BASE } from '../api/client.js'
 
 const emptyForm = {
   title: '',
@@ -158,10 +158,16 @@ function CourseAssignmentDetail({ user }) {
   const [templateLanguage, setTemplateLanguage] = useState('')
   const [templateType, setTemplateType] = useState('ALL')
   const [builderOpen, setBuilderOpen] = useState(false)
+  const [builderType, setBuilderType] = useState('IO')
   const [builderName, setBuilderName] = useState('')
-  const [builderLanguageId, setBuilderLanguageId] = useState('')
+  const [builderVisibility, setBuilderVisibility] = useState('PRIVATE')
+  const [builderSetActive, setBuilderSetActive] = useState(true)
+  const [builderModulePath, setBuilderModulePath] = useState('student.py')
   const [builderCases, setBuilderCases] = useState([
     { name: 'case-1', input: '', expected: '', points: 5 },
+  ])
+  const [builderFunctionCases, setBuilderFunctionCases] = useState([
+    { name: 'case-1', function_name: '', args_json: '[]', expected_json: 'null', points: 5 },
   ])
   const [builderTimeout, setBuilderTimeout] = useState('')
   const [builderError, setBuilderError] = useState('')
@@ -198,6 +204,10 @@ function CourseAssignmentDetail({ user }) {
   })
 
   const canManage = Boolean(user?.is_superuser || user?.is_instructor)
+  const isPythonAssignment = useMemo(() => {
+    const languageName = (assignment?.language_name || '').toLowerCase()
+    return languageName.includes('python')
+  }, [assignment?.language_name])
 
   const loadAssignment = async () => {
     setLoading(true)
@@ -298,20 +308,17 @@ function CourseAssignmentDetail({ user }) {
 
   useEffect(() => {
     if (!assignment) return
-    if (!builderLanguageId && assignment.language) {
-      setBuilderLanguageId(assignment.language)
-    }
     if (!builderName && assignment.title) {
-      setBuilderName(`${assignment.title} I/O tests`)
+      setBuilderName(`${assignment.title} tests`)
     }
-  }, [assignment, builderLanguageId, builderName])
+  }, [assignment, builderName])
 
   useEffect(() => {
     const loadLanguages = async () => {
       try {
         const data = await apiRequest('/api/programming-languages/')
         setLanguages(data)
-      } catch (err) {
+      } catch {
         // optional
       }
     }
@@ -624,30 +631,95 @@ function CourseAssignmentDetail({ user }) {
     setBuilderCases((prev) => prev.filter((_, idx) => idx !== index))
   }
 
+  const handleBuilderFunctionCaseChange = (index, field, value) => {
+    setBuilderFunctionCases((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const addBuilderFunctionCase = () => {
+    setBuilderFunctionCases((prev) => [
+      ...prev,
+      { name: `case-${prev.length + 1}`, function_name: '', args_json: '[]', expected_json: 'null', points: 5 },
+    ])
+  }
+
+  const removeBuilderFunctionCase = (index) => {
+    setBuilderFunctionCases((prev) => prev.filter((_, idx) => idx !== index))
+  }
+
   const handleBuildTemplate = async () => {
     setBuilderSubmitting(true)
     setBuilderError('')
     try {
-      const tests = builderCases
-        .map((test, index) => ({
-          name: test.name || `case-${index + 1}`,
-          input: test.input ?? '',
-          expected: test.expected ?? '',
-          points: Number(test.points) || 0,
-        }))
-        .filter((test) => test.input !== '' || test.expected !== '')
       const payload = {
-        name: builderName || 'io-tests',
-        language_id: builderLanguageId || null,
-        type: 'IO',
-        tests,
+        name: builderName || (builderType === 'FUNCTION' ? 'function-tests' : 'io-tests'),
         timeout_ms: builderTimeout ? Number(builderTimeout) : null,
+        visibility: builderVisibility,
+        set_active: builderSetActive,
       }
-      await downloadFile('/api/test-templates/build/', {
+      if (builderType === 'FUNCTION') {
+        const functionTests = []
+        for (let index = 0; index < builderFunctionCases.length; index += 1) {
+          const test = builderFunctionCases[index]
+          const caseName = test.name || `case-${index + 1}`
+          const functionName = (test.function_name || '').trim()
+          if (!functionName) {
+            setBuilderError(`Case "${caseName}" is missing a function name.`)
+            return
+          }
+          let argsValue
+          let expectedValue
+          try {
+            argsValue = JSON.parse(test.args_json || '[]')
+          } catch {
+            setBuilderError(`Case "${caseName}" has invalid JSON in args.`)
+            return
+          }
+          try {
+            expectedValue = JSON.parse(test.expected_json || 'null')
+          } catch {
+            setBuilderError(`Case "${caseName}" has invalid JSON in expected output.`)
+            return
+          }
+          functionTests.push({
+            name: caseName,
+            function_name: functionName,
+            args: argsValue,
+            expected: expectedValue,
+            points: Number(test.points) || 0,
+          })
+        }
+        if (functionTests.length === 0) {
+          setBuilderError('Add at least one function test case.')
+          return
+        }
+        payload.type = 'FUNCTION'
+        payload.module_path = (builderModulePath || 'student.py').trim() || 'student.py'
+        payload.function_tests = functionTests
+      } else {
+        const tests = builderCases
+          .map((test, index) => ({
+            name: test.name || `case-${index + 1}`,
+            input: test.input ?? '',
+            expected: test.expected ?? '',
+            points: Number(test.points) || 0,
+          }))
+          .filter((test) => test.input !== '' || test.expected !== '')
+        if (tests.length === 0) {
+          setBuilderError('Add at least one test case with input or expected output.')
+          return
+        }
+        payload.type = 'IO'
+        payload.tests = tests
+      }
+      await apiRequest(`/api/assignments/${assignmentId}/test-suites/build/`, {
         method: 'POST',
         body: payload,
-        filename: `${payload.name}.zip`,
       })
+      await loadTestSuites()
       setBuilderOpen(false)
     } catch (err) {
       setBuilderError(err.message || 'Unable to generate test suite')
@@ -1108,13 +1180,13 @@ function CourseAssignmentDetail({ user }) {
                         <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
                           <Box>
                             <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                              Test suite builder (Phase 1)
+                              Test suite builder
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              Pick a language, download a ready zip, edit locally, then upload.
+                              Pick a template to jumpstart tests, or build and publish tests directly.
                             </Typography>
                           </Box>
-                          <Chip label="Phase 1" size="small" variant="outlined" />
+                          <Chip label="Direct publish" size="small" variant="outlined" />
                         </Stack>
                         <Stack
                           direction={{ xs: 'column', md: 'row' }}
@@ -1199,16 +1271,25 @@ function CourseAssignmentDetail({ user }) {
                       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
                         <Box sx={{ flex: 1 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                            I/O builder (MVP)
+                            Test builder
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Define inputs + expected outputs. We generate a ready zip.
+                            Build I/O or function tests and publish as a versioned suite.
                           </Typography>
                         </Box>
-                        <Button variant="contained" onClick={() => setBuilderOpen(true)}>
-                          Build tests
+                        <Button
+                          variant="contained"
+                          onClick={() => setBuilderOpen(true)}
+                          disabled={!isPythonAssignment}
+                        >
+                          Build and publish
                         </Button>
                       </Stack>
+                      {!isPythonAssignment ? (
+                        <Alert severity="warning" sx={{ mt: 1.5 }}>
+                          Set assignment language to Python to use the direct test builder.
+                        </Alert>
+                      ) : null}
                     </Paper>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
                       <Paper
@@ -1905,13 +1986,26 @@ function CourseAssignmentDetail({ user }) {
       </Dialog>
 
       <Dialog open={builderOpen} onClose={() => setBuilderOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Build I/O test suite</DialogTitle>
+        <DialogTitle>Publish test suite</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Alert severity="info">
-              Builder currently supports Python I/O tests. Student submissions should include
-              <strong> main.py</strong> that reads from stdin.
+              Builder supports Python I/O and function tests. Keep expectations deterministic for reliable grading.
             </Alert>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <ToggleButtonGroup
+                size="small"
+                value={builderType}
+                exclusive
+                onChange={(_event, value) => {
+                  if (!value) return
+                  setBuilderType(value)
+                }}
+              >
+                <ToggleButton value="IO">I/O tests</ToggleButton>
+                <ToggleButton value="FUNCTION">Function tests</ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField
                 label="Suite name"
@@ -1920,18 +2014,15 @@ function CourseAssignmentDetail({ user }) {
                 fullWidth
               />
               <FormControl size="small" fullWidth>
-                <InputLabel id="builder-language-label">Language</InputLabel>
+                <InputLabel id="builder-visibility-label">Visibility</InputLabel>
                 <Select
-                  labelId="builder-language-label"
-                  label="Language"
-                  value={builderLanguageId}
-                  onChange={(event) => setBuilderLanguageId(event.target.value)}
+                  labelId="builder-visibility-label"
+                  label="Visibility"
+                  value={builderVisibility}
+                  onChange={(event) => setBuilderVisibility(event.target.value)}
                 >
-                  {languages.map((language) => (
-                    <MenuItem key={language.id} value={language.id}>
-                      {language.name}
-                    </MenuItem>
-                  ))}
+                  <MenuItem value="PRIVATE">Private</MenuItem>
+                  <MenuItem value="PUBLIC">Public</MenuItem>
                 </Select>
               </FormControl>
               <TextField
@@ -1942,73 +2033,170 @@ function CourseAssignmentDetail({ user }) {
                 fullWidth
               />
             </Stack>
+            {builderType === 'FUNCTION' ? (
+              <TextField
+                label="Module path inside submission"
+                value={builderModulePath}
+                onChange={(event) => setBuilderModulePath(event.target.value)}
+                fullWidth
+                helperText='Example: "student.py" or "solution/main.py"'
+              />
+            ) : null}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={builderSetActive}
+                  onChange={(event) => setBuilderSetActive(event.target.checked)}
+                />
+              }
+              label="Set as active test suite after publish"
+            />
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               Test cases
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Provide stdin input (include newlines) and the exact expected stdout output.
-            </Typography>
-            <Stack spacing={1.5}>
-              {builderCases.map((testCase, index) => (
-                <Paper key={`case-${index}`} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-                  <Stack spacing={1.5}>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-                      <TextField
-                        label="Name"
-                        value={testCase.name}
-                        onChange={(event) =>
-                          handleBuilderCaseChange(index, 'name', event.target.value)
-                        }
-                        sx={{ minWidth: 160 }}
-                      />
-                      <TextField
-                        label="Points"
-                        type="number"
-                        value={testCase.points}
-                        onChange={(event) =>
-                          handleBuilderCaseChange(index, 'points', event.target.value)
-                        }
-                        sx={{ width: 140 }}
-                      />
-                      <Box sx={{ flex: 1 }} />
-                      <Button
-                        variant="text"
-                        color="error"
-                        onClick={() => removeBuilderCase(index)}
-                        disabled={builderCases.length <= 1}
-                      >
-                        Remove
-                      </Button>
-                    </Stack>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-                      <TextField
-                        label="Input (stdin)"
-                        value={testCase.input}
-                        onChange={(event) =>
-                          handleBuilderCaseChange(index, 'input', event.target.value)
-                        }
-                        multiline
-                        minRows={3}
-                        fullWidth
-                      />
-                      <TextField
-                        label="Expected output"
-                        value={testCase.expected}
-                        onChange={(event) =>
-                          handleBuilderCaseChange(index, 'expected', event.target.value)
-                        }
-                        multiline
-                        minRows={3}
-                        fullWidth
-                      />
-                    </Stack>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
-            <Button variant="outlined" startIcon={<AddRounded />} onClick={addBuilderCase}>
-              Add case
-            </Button>
+            {builderType === 'FUNCTION' ? (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  Use JSON for args and expected values. Args can be list, object, primitive, or null.
+                </Typography>
+                <Stack spacing={1.5}>
+                  {builderFunctionCases.map((testCase, index) => (
+                    <Paper key={`function-case-${index}`} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                      <Stack spacing={1.5}>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+                          <TextField
+                            label="Name"
+                            value={testCase.name}
+                            onChange={(event) =>
+                              handleBuilderFunctionCaseChange(index, 'name', event.target.value)
+                            }
+                            sx={{ minWidth: 160 }}
+                          />
+                          <TextField
+                            label="Function name"
+                            value={testCase.function_name}
+                            onChange={(event) =>
+                              handleBuilderFunctionCaseChange(index, 'function_name', event.target.value)
+                            }
+                            sx={{ minWidth: 220 }}
+                          />
+                          <TextField
+                            label="Points"
+                            type="number"
+                            value={testCase.points}
+                            onChange={(event) =>
+                              handleBuilderFunctionCaseChange(index, 'points', event.target.value)
+                            }
+                            sx={{ width: 140 }}
+                          />
+                          <Box sx={{ flex: 1 }} />
+                          <Button
+                            variant="text"
+                            color="error"
+                            onClick={() => removeBuilderFunctionCase(index)}
+                            disabled={builderFunctionCases.length <= 1}
+                          >
+                            Remove
+                          </Button>
+                        </Stack>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+                          <TextField
+                            label="Args JSON"
+                            value={testCase.args_json}
+                            onChange={(event) =>
+                              handleBuilderFunctionCaseChange(index, 'args_json', event.target.value)
+                            }
+                            multiline
+                            minRows={3}
+                            fullWidth
+                          />
+                          <TextField
+                            label="Expected JSON"
+                            value={testCase.expected_json}
+                            onChange={(event) =>
+                              handleBuilderFunctionCaseChange(index, 'expected_json', event.target.value)
+                            }
+                            multiline
+                            minRows={3}
+                            fullWidth
+                          />
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+                <Button variant="outlined" startIcon={<AddRounded />} onClick={addBuilderFunctionCase}>
+                  Add function case
+                </Button>
+              </>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  Provide stdin input (include newlines) and the exact expected stdout output.
+                </Typography>
+                <Stack spacing={1.5}>
+                  {builderCases.map((testCase, index) => (
+                    <Paper key={`io-case-${index}`} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                      <Stack spacing={1.5}>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+                          <TextField
+                            label="Name"
+                            value={testCase.name}
+                            onChange={(event) =>
+                              handleBuilderCaseChange(index, 'name', event.target.value)
+                            }
+                            sx={{ minWidth: 160 }}
+                          />
+                          <TextField
+                            label="Points"
+                            type="number"
+                            value={testCase.points}
+                            onChange={(event) =>
+                              handleBuilderCaseChange(index, 'points', event.target.value)
+                            }
+                            sx={{ width: 140 }}
+                          />
+                          <Box sx={{ flex: 1 }} />
+                          <Button
+                            variant="text"
+                            color="error"
+                            onClick={() => removeBuilderCase(index)}
+                            disabled={builderCases.length <= 1}
+                          >
+                            Remove
+                          </Button>
+                        </Stack>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+                          <TextField
+                            label="Input (stdin)"
+                            value={testCase.input}
+                            onChange={(event) =>
+                              handleBuilderCaseChange(index, 'input', event.target.value)
+                            }
+                            multiline
+                            minRows={3}
+                            fullWidth
+                          />
+                          <TextField
+                            label="Expected output"
+                            value={testCase.expected}
+                            onChange={(event) =>
+                              handleBuilderCaseChange(index, 'expected', event.target.value)
+                            }
+                            multiline
+                            minRows={3}
+                            fullWidth
+                          />
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+                <Button variant="outlined" startIcon={<AddRounded />} onClick={addBuilderCase}>
+                  Add I/O case
+                </Button>
+              </>
+            )}
             {builderError ? <Alert severity="error">{builderError}</Alert> : null}
           </Stack>
         </DialogContent>
@@ -2019,7 +2207,7 @@ function CourseAssignmentDetail({ user }) {
             onClick={handleBuildTemplate}
             disabled={builderSubmitting}
           >
-            {builderSubmitting ? 'Generating…' : 'Generate zip'}
+            {builderSubmitting ? 'Publishing…' : 'Publish test suite'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,34 +1,20 @@
 import io
 import json
-import zipfile
 
 from django.http import FileResponse
 from django.utils.text import slugify
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from ..models import Enrollment, EnrollmentRole, EnrollmentStatus, ProgrammingLanguage
-
-
-def _is_instructor(user):
-    if user.is_superuser:
-        return True
-    if user.groups.filter(name='Instructor').exists():
-        return True
-    return Enrollment.objects.filter(
-        user=user,
-        status=EnrollmentStatus.ACTIVE,
-        role__in=[EnrollmentRole.INSTRUCTOR, EnrollmentRole.TA],
-    ).exists()
+from ..models import ProgrammingLanguage
+from ..services.access import can_access_template_tools
+from ..services.test_suite_builder import zip_bytes
 
 
-def _zip_bytes(files):
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
-        for name, content in files.items():
-            zip_ref.writestr(name, content)
+def _zip_buffer(files):
+    buffer = io.BytesIO(zip_bytes(files))
     buffer.seek(0)
     return buffer
 
@@ -44,7 +30,7 @@ def _python_unit_template():
             'Edit run_tests.py to add your tests. '
             'This template writes results.json for the grader.'
         ),
-        'bundle': _zip_bytes({
+        'bundle': _zip_buffer({
             'README.md': (
                 '# Python unit test template\n\n'
                 'This template expects a student submission with `student.py`.\n'
@@ -122,7 +108,7 @@ def _python_io_template():
             'Edit tests.json with input/output pairs. '
             'Student submission should include main.py that reads stdin.'
         ),
-        'bundle': _zip_bytes({
+        'bundle': _zip_buffer({
             'README.md': (
                 '# Python I/O test template\n\n'
                 'This template expects a student submission with `main.py`.\n'
@@ -195,7 +181,7 @@ class TestTemplateListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not _is_instructor(request.user):
+        if not can_access_template_tools(request.user):
             raise PermissionDenied('Not authorized to view test templates.')
         language_filter = request.query_params.get('language')
         type_filter = request.query_params.get('type')
@@ -223,7 +209,7 @@ class TestTemplateBundleView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, template_id):
-        if not _is_instructor(request.user):
+        if not can_access_template_tools(request.user):
             raise PermissionDenied('Not authorized to download test templates.')
         builder = TEMPLATES.get(template_id)
         if not builder:
@@ -238,7 +224,7 @@ class TestTemplateBuildView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if not _is_instructor(request.user):
+        if not can_access_template_tools(request.user):
             raise PermissionDenied('Not authorized to build test templates.')
         payload = request.data or {}
         template_type = (payload.get('type') or payload.get('kind') or '').upper()
@@ -362,6 +348,6 @@ class TestTemplateBuildView(APIView):
             'tests.json': json.dumps(tests_json, indent=2),
             'run_tests.py': run_tests,
         }
-        bundle = _zip_bytes(files)
+        bundle = _zip_buffer(files)
         safe_name = slugify(name) or 'io-tests'
         return FileResponse(bundle, as_attachment=True, filename=f'{safe_name}.zip')
