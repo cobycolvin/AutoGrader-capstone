@@ -1,0 +1,3 @@
+sample_id,source,label_ai,readability_points,design_points,docs_points
+human_example_001,human,0,4.5,4.0,3.5
+ai_example_001,ai,1,2.5,2.0,1.5

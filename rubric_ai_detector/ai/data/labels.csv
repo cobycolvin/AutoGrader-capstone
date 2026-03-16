@@ -1,0 +1,9 @@
+sample_id,source,label_ai,readability_points,design_points,docs_points
+human_example_001,human,0,4.5,4.0,3.5
+human_example_002,human,0,4.0,3.5,3.0
+human_example_003,human,0,4.2,3.8,3.2
+human_example_004,human,0,4.7,4.4,3.9
+ai_example_001,ai,1,2.5,2.0,1.5
+ai_example_002,ai,1,2.7,2.2,1.8
+ai_example_003,ai,1,2.2,1.9,1.3
+ai_example_004,ai,1,2.9,2.4,1.9
