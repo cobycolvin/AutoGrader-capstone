@@ -11,14 +11,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from ai.features.extract_features import (
-    SUPPORTED_LANGUAGES,
-    extract_features_from_file,
-    get_supported_extensions,
-    infer_language_from_path,
-)
+from ai.features.extract_features import SUPPORTED_LANGUAGES, extract_features_from_file, get_supported_extensions, infer_language_from_path
 
-RUBRIC_COLUMNS = ["readability_points", "design_points", "docs_points"]
+DEFAULT_RUBRIC_COLUMNS = ["readability_points", "design_points", "docs_points"]
+RUBRIC_COLUMNS = DEFAULT_RUBRIC_COLUMNS
 
 
 @dataclass
@@ -70,7 +66,30 @@ def _resolve_file_path(base_dir: Path, source: str, sample_id: str, language: st
     )
 
 
-def _load_labels(data_dir: Path) -> list[SampleRecord]:
+def _resolve_rubric_columns(df: pd.DataFrame, requested_columns: str | None) -> list[str]:
+    if requested_columns:
+        rubric_columns = [column.strip() for column in requested_columns.split(",") if column.strip()]
+        missing = [column for column in rubric_columns if column not in df.columns]
+        if missing:
+            raise ValueError(f"labels.csv is missing rubric columns: {missing}")
+        return rubric_columns
+
+    default_available = [column for column in DEFAULT_RUBRIC_COLUMNS if column in df.columns]
+    if default_available:
+        return default_available
+
+    excluded_columns = {"sample_id", "source", "label_ai", "language", "filename"}
+    rubric_columns: list[str] = []
+    for column in df.columns:
+        if column in excluded_columns:
+            continue
+        numeric_series = pd.to_numeric(df[column], errors="coerce")
+        if numeric_series.notna().any():
+            rubric_columns.append(column)
+    return rubric_columns
+
+
+def _load_labels(data_dir: Path, rubric_columns: list[str]) -> list[SampleRecord]:
     labels_path = data_dir / "labels.csv"
     df = pd.read_csv(labels_path)
 
@@ -100,7 +119,7 @@ def _load_labels(data_dir: Path) -> list[SampleRecord]:
         resolved_language = language or infer_language_from_path(path)
 
         rubric_scores: list[float] = []
-        for col in RUBRIC_COLUMNS:
+        for col in rubric_columns:
             value = row.get(col, np.nan)
             rubric_scores.append(float(value) if pd.notna(value) else np.nan)
 
@@ -159,6 +178,11 @@ def main() -> None:
         default="all",
         help="Filter labels to one language or use 'all'. Supported: all, python, java, perl, javascript, css, html.",
     )
+    parser.add_argument(
+        "--rubric_columns",
+        default="",
+        help="Comma-separated rubric columns. Defaults to readability/design/docs if present, otherwise auto-detect numeric rubric columns.",
+    )
     parser.add_argument("--test_size", type=float, default=0.2)
     parser.add_argument("--val_size", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
@@ -178,7 +202,9 @@ def main() -> None:
     split_dir.mkdir(parents=True, exist_ok=True)
     feature_dir.mkdir(parents=True, exist_ok=True)
 
-    records = _load_labels(data_dir)
+    labels_df = pd.read_csv(data_dir / "labels.csv")
+    rubric_columns = _resolve_rubric_columns(labels_df, args.rubric_columns or None)
+    records = _load_labels(data_dir, rubric_columns)
     if requested_language != "all":
         records = [record for record in records if record.language == requested_language]
 
@@ -231,6 +257,8 @@ def main() -> None:
         np.save(feature_dir / "Y_rubric_train.npy", Y_rubric[train_idx])
         np.save(feature_dir / "Y_rubric_val.npy", Y_rubric[val_idx])
         np.save(feature_dir / "Y_rubric_test.npy", Y_rubric[test_idx])
+        with (feature_dir / "rubric_column_names.json").open("w", encoding="utf-8") as handle:
+            json.dump(rubric_columns, handle, indent=2)
 
     joblib.dump(scaler, feature_dir / "scaler.joblib")
 
@@ -245,6 +273,7 @@ def main() -> None:
     language_counts = pd.Series([record.language for record in records]).value_counts().to_dict()
     print(f"Prepared dataset with {len(records)} samples.")
     print(f"Language counts: {language_counts}")
+    print(f"Rubric columns: {rubric_columns}")
     print(f"Train/Val/Test sizes: {len(train_idx)}/{len(val_idx)}/{len(test_idx)}")
 
 

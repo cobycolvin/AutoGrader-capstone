@@ -16,7 +16,13 @@ from sklearn.metrics import (
 )
 
 from ai.models.rubric_mlp import MLPConfig, RubricMLP
-from ai.prepare_dataset import RUBRIC_COLUMNS
+
+
+def _load_rubric_column_names(feature_dir: Path) -> list[str]:
+    path = feature_dir / "rubric_column_names.json"
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _load_model(model_path: Path) -> RubricMLP:
@@ -60,6 +66,7 @@ def main() -> None:
         }
     else:
         y_rubric_test = np.load(feature_dir / "Y_rubric_test.npy")
+        rubric_column_names = _load_rubric_column_names(feature_dir)
         mae_per_dim = []
         for idx in range(y_rubric_test.shape[1]):
             mae_per_dim.append(float(mean_absolute_error(y_rubric_test[:, idx], preds[:, idx])))
@@ -68,7 +75,7 @@ def main() -> None:
             "task": "rubric",
             "overall_mae": float(mean_absolute_error(y_rubric_test, preds)),
             "mae_by_dimension": {
-                RUBRIC_COLUMNS[i] if i < len(RUBRIC_COLUMNS) else f"dim_{i}": mae
+                rubric_column_names[i] if i < len(rubric_column_names) else f"dim_{i}": mae
                 for i, mae in enumerate(mae_per_dim)
             },
         }

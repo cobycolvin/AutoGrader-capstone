@@ -8,12 +8,13 @@ from difflib import SequenceMatcher
 from itertools import combinations
 from pathlib import Path
 
-from ai.features.extract_features import ast_node_type_sequence, normalize_code_for_similarity, simple_tokenize
+from ai.features.extract_features import ast_node_type_sequence, infer_language_from_path, normalize_code_for_similarity, simple_tokenize
 
 
 @dataclass
 class PairSimilarity:
     assignment_id: str
+    language: str
     file_a: str
     file_b: str
     normalized_text_similarity: float
@@ -56,15 +57,31 @@ def _strip_prefix(tokens: list[str], prefix: list[str]) -> list[str]:
     return tokens
 
 
-def _collect_submissions(folder: Path, mode: str) -> dict[str, list[Path]]:
-    if mode == "global":
-        return {"all": sorted(folder.glob("*.py"))}
+def _collect_submissions(folder: Path, mode: str) -> dict[tuple[str, str], list[Path]]:
+    def supported_files(parent: Path) -> list[Path]:
+        files: list[Path] = []
+        for path in sorted(parent.iterdir()):
+            if not path.is_file():
+                continue
+            try:
+                infer_language_from_path(path)
+            except ValueError:
+                continue
+            files.append(path)
+        return files
 
-    assignments: dict[str, list[Path]] = {}
+    if mode == "global":
+        groups: dict[tuple[str, str], list[Path]] = {}
+        for path in supported_files(folder):
+            language = infer_language_from_path(path)
+            groups.setdefault(("all", language), []).append(path)
+        return groups
+
+    assignments: dict[tuple[str, str], list[Path]] = {}
     for subdir in sorted(path for path in folder.iterdir() if path.is_dir()):
-        py_files = sorted(subdir.glob("*.py"))
-        if py_files:
-            assignments[subdir.name] = py_files
+        for path in supported_files(subdir):
+            language = infer_language_from_path(path)
+            assignments.setdefault((subdir.name, language), []).append(path)
     return assignments
 
 
@@ -72,15 +89,15 @@ def compare_folder(folder: Path, threshold: float, mode: str) -> list[PairSimila
     groups = _collect_submissions(folder, mode)
     pairs: list[PairSimilarity] = []
 
-    for assignment_id, py_files in groups.items():
+    for (assignment_id, language), source_files in groups.items():
         submissions: dict[str, dict[str, object]] = {}
         token_lists: list[list[str]] = []
 
-        for path in py_files:
+        for path in source_files:
             code = path.read_text(encoding="utf-8")
-            normalized = normalize_code_for_similarity(code)
-            tokens = simple_tokenize(code)
-            ast_seq = ast_node_type_sequence(code)
+            normalized = normalize_code_for_similarity(code, language)
+            tokens = simple_tokenize(code, language)
+            ast_seq = ast_node_type_sequence(code, language)
             submissions[path.name] = {
                 "normalized": normalized,
                 "tokens": tokens,
@@ -106,6 +123,7 @@ def compare_folder(folder: Path, threshold: float, mode: str) -> list[PairSimila
             pairs.append(
                 PairSimilarity(
                     assignment_id=assignment_id,
+                    language=language,
                     file_a=a_name,
                     file_b=b_name,
                     normalized_text_similarity=round(text_sim, 4),
@@ -123,8 +141,8 @@ def compare_folder(folder: Path, threshold: float, mode: str) -> list[PairSimila
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Lightweight plagiarism comparison for Python submissions")
-    parser.add_argument("--folder", required=True, help="Folder containing .py submissions")
+    parser = argparse.ArgumentParser(description="Lightweight plagiarism comparison for supported source files")
+    parser.add_argument("--folder", required=True, help="Folder containing supported source files")
     parser.add_argument(
         "--mode",
         choices=["global", "assignment"],

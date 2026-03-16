@@ -20,6 +20,13 @@ def _load_model(output_dir: Path, task: str) -> RubricMLP:
     return model
 
 
+def _load_rubric_column_names(feature_dir: Path) -> list[str]:
+    path = feature_dir / "rubric_column_names.json"
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run inference for one supported source file")
     parser.add_argument("--task", choices=["ai_detect", "rubric"], required=True)
@@ -55,10 +62,14 @@ def main() -> None:
             "threshold": args.threshold,
         }
     else:
+        rubric_column_names = _load_rubric_column_names(feature_dir)
         output = {
             "file": args.file,
             "language": features.language,
-            "predicted_rubric_scores": [float(v) for v in raw_pred.tolist()],
+            "predicted_rubric_scores": {
+                rubric_column_names[index] if index < len(rubric_column_names) else f"dim_{index}": float(value)
+                for index, value in enumerate(raw_pred.tolist())
+            },
         }
 
     print(json.dumps(output, indent=2))
