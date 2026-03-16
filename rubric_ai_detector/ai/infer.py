@@ -8,7 +8,7 @@ import joblib
 import numpy as np
 import torch
 
-from ai.features.extract_features import extract_features_from_file
+from ai.features.extract_features import SUPPORTED_LANGUAGES, extract_features_from_file, infer_language_from_path
 from ai.models.rubric_mlp import MLPConfig, RubricMLP
 
 
@@ -21,9 +21,14 @@ def _load_model(output_dir: Path, task: str) -> RubricMLP:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run inference for one Python file")
+    parser = argparse.ArgumentParser(description="Run inference for one supported source file")
     parser.add_argument("--task", choices=["ai_detect", "rubric"], required=True)
     parser.add_argument("--file", required=True)
+    parser.add_argument(
+        "--language",
+        default="auto",
+        help=f"Use 'auto' to infer from file extension or choose one of: {', '.join(SUPPORTED_LANGUAGES)}",
+    )
     parser.add_argument("--threshold", type=float, default=0.85)
     args = parser.parse_args()
 
@@ -32,7 +37,8 @@ def main() -> None:
     output_dir = root / "output"
 
     scaler = joblib.load(feature_dir / "scaler.joblib")
-    features = extract_features_from_file(args.file)
+    language = infer_language_from_path(args.file) if args.language == "auto" else args.language
+    features = extract_features_from_file(args.file, language=language)
     X = scaler.transform(np.array(features.values, dtype=np.float32).reshape(1, -1))
 
     model = _load_model(output_dir, args.task)
@@ -43,6 +49,7 @@ def main() -> None:
         prob = float(1.0 / (1.0 + np.exp(-raw_pred[0])))
         output = {
             "file": args.file,
+            "language": features.language,
             "ai_generated_probability": prob,
             "flagged": prob >= args.threshold,
             "threshold": args.threshold,
@@ -50,6 +57,7 @@ def main() -> None:
     else:
         output = {
             "file": args.file,
+            "language": features.language,
             "predicted_rubric_scores": [float(v) for v in raw_pred.tolist()],
         }
 
