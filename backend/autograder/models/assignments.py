@@ -83,8 +83,9 @@ class Submission(BaseModel):
         choices=SubmissionStatus.choices,
         default=SubmissionStatus.QUEUED,
     )
-    source_bundle_key = models.CharField(max_length=512)
+    source_bundle_key = models.CharField(max_length=512, blank=True)
     starter_code_version = models.CharField(max_length=100, blank=True)
+    content = models.TextField(blank=True, help_text="Student submission text (code or essay)")
 
     class Meta:
         constraints = [

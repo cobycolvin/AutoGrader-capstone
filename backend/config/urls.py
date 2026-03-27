@@ -20,6 +20,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from accounts import views as account_views
+from autograder.api.assignments import AssignmentViewSet, SubmissionViewSet
 from autograder.api.courses import CourseViewSet
 
 
@@ -28,6 +29,8 @@ def health(_request):
 
 router = DefaultRouter()
 router.register('courses', CourseViewSet, basename='course')
+router.register('assignments', AssignmentViewSet, basename='assignment')
+router.register('submissions', SubmissionViewSet, basename='submission')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

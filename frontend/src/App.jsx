@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './layout/AppLayout.jsx'
 import { apiRequest } from './api/client.js'
+import AssignmentsPage from './pages/Assignments.jsx'
 import ComingSoon from './pages/ComingSoon.jsx'
 import CoursesPage from './pages/Courses.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -108,7 +109,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard busy={busy} onLogout={handleLogout} />} />
         <Route path="/courses" element={<CoursesPage />} />
-        <Route path="/assignments" element={<ComingSoon title="Assignments" />} />
+        <Route path="/assignments" element={<AssignmentsPage />} />
         <Route path="/submissions" element={<ComingSoon title="Submissions" />} />
         <Route path="/integrity" element={<ComingSoon title="Integrity" />} />
         <Route path="/settings" element={<ComingSoon title="Settings" />} />
