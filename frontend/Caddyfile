@@ -1,0 +1,29 @@
+{$SITE_ADDRESS} {
+    encode zstd gzip
+
+    route {
+        handle /static/* {
+            root * /srv-static
+            file_server
+        }
+
+        handle /media/* {
+            root * /srv-media
+            file_server
+        }
+
+        handle /api/* {
+            reverse_proxy backend:8000
+        }
+
+        handle /admin* {
+            reverse_proxy backend:8000
+        }
+
+        handle {
+            root * /srv
+            try_files {path} /index.html
+            file_server
+        }
+    }
+}
