@@ -89,8 +89,7 @@ def _resolve_rubric_columns(df: pd.DataFrame, requested_columns: str | None) -> 
     return rubric_columns
 
 
-def _load_labels(data_dir: Path, rubric_columns: list[str]) -> list[SampleRecord]:
-    labels_path = data_dir / "labels.csv"
+def _load_labels(data_dir: Path, labels_path: Path, rubric_columns: list[str]) -> list[SampleRecord]:
     df = pd.read_csv(labels_path)
 
     required_cols = {"sample_id", "source", "label_ai"}
@@ -176,12 +175,17 @@ def main() -> None:
     parser.add_argument(
         "--language",
         default="all",
-        help="Filter labels to one language or use 'all'. Supported: all, python, java, perl, javascript, css, html.",
+        help="Filter labels to one language or use 'all'. Supported: all, python, java, rust, c++, go.",
     )
     parser.add_argument(
         "--rubric_columns",
         default="",
         help="Comma-separated rubric columns. Defaults to readability/design/docs if present, otherwise auto-detect numeric rubric columns.",
+    )
+    parser.add_argument(
+        "--labels_csv",
+        default="",
+        help="Optional path to a labels CSV. Defaults to ai/data/labels.csv.",
     )
     parser.add_argument("--test_size", type=float, default=0.2)
     parser.add_argument("--val_size", type=float, default=0.2)
@@ -199,12 +203,13 @@ def main() -> None:
     data_dir = root / "data"
     split_dir = data_dir / "splits"
     feature_dir = data_dir / "features"
+    labels_path = Path(args.labels_csv).expanduser().resolve() if args.labels_csv else data_dir / "labels.csv"
     split_dir.mkdir(parents=True, exist_ok=True)
     feature_dir.mkdir(parents=True, exist_ok=True)
 
-    labels_df = pd.read_csv(data_dir / "labels.csv")
+    labels_df = pd.read_csv(labels_path)
     rubric_columns = _resolve_rubric_columns(labels_df, args.rubric_columns or None)
-    records = _load_labels(data_dir, rubric_columns)
+    records = _load_labels(data_dir, labels_path, rubric_columns)
     if requested_language != "all":
         records = [record for record in records if record.language == requested_language]
 

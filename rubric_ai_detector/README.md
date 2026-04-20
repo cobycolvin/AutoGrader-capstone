@@ -23,10 +23,9 @@ The feature extractor now supports:
 
 - Python: `.py`
 - Java: `.java`
-- Perl: `.pl`, `.pm`
-- JavaScript: `.js`, `.mjs`, `.cjs`, `.jsx`
-- CSS: `.css`
-- HTML: `.html`, `.htm`
+- Rust: `.rs`
+- C++: `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx`, `.h`
+- Go: `.go`
 
 The pipeline stays lightweight by using:
 
@@ -34,7 +33,7 @@ The pipeline stays lightweight by using:
 - comment density and style
 - token frequency and repetition
 - identifier variety and entropy
-- structural markers like braces, blocks, imports, functions, classes, selectors, and tags
+- structural markers like braces, blocks, imports, functions, classes, structs, traits, interfaces, and namespaces
 - Python-only AST and cyclomatic complexity features when the file is Python
 - one-hot language flags so one model can be trained on mixed-language datasets
 
@@ -125,13 +124,16 @@ Examples:
 ai/data/raw/human/
   student_001.py
   student_002.java
-  student_003.js
-  student_004.html
+  student_003.rs
+  student_004.cpp
+  student_005.go
 
 ai/data/raw/ai/
   ai_001.py
   ai_002.java
-  ai_003.css
+  ai_003.rs
+  ai_004.cpp
+  ai_005.go
 ```
 
 You can also organize them into language subfolders if you want:
@@ -139,8 +141,33 @@ You can also organize them into language subfolders if you want:
 ```text
 ai/data/raw/human/python/student_001.py
 ai/data/raw/human/java/student_002.java
-ai/data/raw/ai/javascript/ai_003.js
+ai/data/raw/human/c++/student_003.cpp
+ai/data/raw/ai/go/ai_004.go
 ```
+
+### Training Data Checklist
+
+For this package, training data means actual source-code files on disk plus a CSV manifest that tells the pipeline which files are human vs AI.
+
+You need:
+
+1. One file per sample under `ai/data/raw/human/` or `ai/data/raw/ai/`
+2. A `labels.csv` style manifest with at least:
+   - `sample_id`
+   - `source`
+   - `label_ai`
+3. Optional metadata columns:
+   - `language`
+   - `filename`
+4. Optional rubric target columns if you are training the rubric model
+
+Important:
+
+- the feature extractor does not train directly from one big CSV column of code
+- each sample should exist as a real `.py`, `.java`, `.rs`, `.cpp`, or `.go` file
+- `source=human` must use `label_ai=0`
+- `source=ai` must use `label_ai=1`
+- for rubric training, use only finalized human-reviewed scores
 
 ### 4. Create `labels.csv`
 
@@ -165,8 +192,124 @@ Example:
 sample_id,source,label_ai,language,filename,readability_points,design_points,docs_points
 human_py_001,human,0,python,human_py_001.py,4.5,4.0,3.5
 human_java_001,human,0,java,human_java_001.java,4.0,4.0,3.0
-ai_js_001,ai,1,javascript,ai_js_001.js,2.5,2.0,1.5
-human_html_001,human,0,html,human_html_001.html,4.0,3.5,4.5
+human_rs_001,human,0,rust,human_rs_001.rs,4.0,3.5,3.5
+ai_go_001,ai,1,go,ai_go_001.go,2.5,2.0,1.5
+```
+
+### Generate `labels.csv` automatically
+
+If your files are already organized under `ai/data/raw/`, you can generate the manifest instead of typing it by hand.
+
+Recommended folder plan:
+
+```text
+ai/data/raw/
+  human/
+    python/
+      student_001.py
+      student_002.py
+    java/
+      student_101.java
+    rust/
+      student_201.rs
+  ai/
+    c++/
+      prompt_001.cpp
+    go/
+      prompt_201.go
+```
+
+Build an AI-detection manifest from those folders:
+
+```bash
+python -m ai.build_labels --sources human,ai --output ai/data/labels_ai_detect.csv
+```
+
+Build a rubric-training manifest from only human submissions:
+
+```bash
+python -m ai.build_labels --sources human --output ai/data/labels_rubric.csv
+```
+
+The generated CSV includes:
+
+- `sample_id`
+- `source`
+- `label_ai`
+- `language`
+- `filename`
+
+`filename` is stored relative to `ai/data/raw/human/` or `ai/data/raw/ai/`, so nested folders still resolve correctly during dataset prep.
+
+### Using the Kaggle AI-vs-human dataset
+
+If you download a dataset such as [AI vs. Human Code: A Comparative Dataset](https://www.kaggle.com/datasets/paruljain1024pp/ai-vs-human-code-a-comparative-dataset), the main thing to remember is that this project expects code files, not only a table.
+
+Recommended workflow:
+
+1. Download the Kaggle dataset and inspect its CSV columns.
+2. Keep only rows for the languages this repo supports:
+   - `python`
+   - `java`
+   - `rust`
+   - `c++`
+   - `go`
+3. For each row, write the code snippet into a real source file with the right extension:
+   - Python to `.py`
+   - Java to `.java`
+   - Rust to `.rs`
+   - C++ to `.cpp`
+   - Go to `.go`
+4. Put human rows under `ai/data/raw/human/`
+5. Put AI rows under `ai/data/raw/ai/`
+6. Run `python -m ai.build_labels --sources human,ai --output ai/data/labels_ai_detect.csv`
+7. Run `python -m ai.prepare_dataset --labels_csv ai/data/labels_ai_detect.csv --language all`
+
+Example target layout after converting the Kaggle rows into files:
+
+```text
+ai/data/raw/
+  human/
+    python/
+      human__0001.py
+    java/
+      human__0002.java
+    rust/
+      human__0003.rs
+  ai/
+    c++/
+      ai__1001.cpp
+    go/
+      ai__1002.go
+```
+
+If the Kaggle CSV already has a file name column, reuse it. If it only has raw code text, generate your own stable names like `human__0001.py` or `ai__1002.go`.
+
+Do not mix unsupported languages into the same training run unless you add extractor support for them first.
+
+### Merge rubric scores into the generated manifest
+
+For rubric training, export historical human-reviewed scores from your app into a CSV and merge them onto the scanned files.
+
+Example rubric export:
+
+```csv
+sample_id,readability_points,design_points,docs_points
+human__python__student_001_py,4.5,4.0,3.5
+human__python__student_002_py,4.0,3.5,3.0
+human__java__student_101_java,4.0,4.0,3.5
+```
+
+Merge and keep only scored submissions:
+
+```bash
+python -m ai.build_labels --sources human --rubric_csv ai/data/rubric_scores.csv --drop_unmatched_rubric --output ai/data/labels_rubric.csv
+```
+
+If your rubric export keys on file path instead, use:
+
+```bash
+python -m ai.build_labels --sources human --rubric_csv ai/data/rubric_scores.csv --rubric_join_key filename --drop_unmatched_rubric --output ai/data/labels_rubric.csv
 ```
 
 ## Preparing the Dataset
@@ -181,6 +324,15 @@ python -m ai.prepare_dataset --language all
 
 ```bash
 python -m ai.prepare_dataset --language java
+```
+
+### Use a specific labels file
+
+This is useful if you keep separate manifests for AI detection and rubric training.
+
+```bash
+python -m ai.prepare_dataset --labels_csv ai/data/labels_ai_detect.csv --language all
+python -m ai.prepare_dataset --labels_csv ai/data/labels_rubric.csv --language java
 ```
 
 ### Custom rubric columns
@@ -264,7 +416,7 @@ Output fields:
 ### Rubric prediction
 
 ```bash
-python -m ai.infer --task rubric --file ai/data/raw/human/human_html_001.html
+python -m ai.infer --task rubric --file ai/data/raw/human/human_go_001.go
 ```
 
 Output fields:
@@ -292,9 +444,9 @@ submissions_root/
     student_b.py
     student_c.java
   assignment_2/
-    student_d.js
-    student_e.js
-    student_f.html
+    student_d.rs
+    student_e.cpp
+    student_f.go
 ```
 
 Run:
@@ -306,7 +458,7 @@ python -m ai.plagiarism --folder submissions_root --mode assignment --top_k 20 -
 Notes:
 
 - comparison is only done within the same assignment group
-- files are also grouped by language so Java is not compared against HTML
+- files are also grouped by language so Java is not compared against Go
 - assignment mode strips an exact common token prefix to reduce noise from shared starter code
 
 Signals combined into the final similarity score:

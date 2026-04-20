@@ -13,7 +13,7 @@ from typing import Iterable
 
 
 TOKEN_PATTERN = re.compile(
-    r"[A-Za-z_][A-Za-z0-9_-]*|\d+(?:\.\d+)?|==|!=|<=|>=|=>|->|&&|\|\||[{}()\[\];:,.<>/+*%=&!#@-]"
+    r"[A-Za-z_][A-Za-z0-9_-]*|\d+(?:\.\d+)?|==|!=|<=|>=|=>|->|&&|\|\||[{}()\[\];:,.<>/+*%=&!#@?|~-]"
 )
 IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 STRING_LITERAL_PATTERN = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', re.DOTALL)
@@ -21,30 +21,31 @@ NUMERIC_LITERAL_PATTERN = re.compile(r"\b\d+(?:\.\d+)?\b")
 HTML_TAG_PATTERN = re.compile(r"<([A-Za-z][A-Za-z0-9:-]*)\b")
 CSS_RULE_PATTERN = re.compile(r"(^|[}\n])\s*([^@{}\n][^{]*)\{", re.MULTILINE)
 
-SUPPORTED_LANGUAGES = ("python", "java", "perl", "javascript", "css", "html")
+SUPPORTED_LANGUAGES = ("python", "java", "rust", "c++", "go")
 LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "python": (".py",),
     "java": (".java",),
-    "perl": (".pl", ".pm"),
-    "javascript": (".js", ".mjs", ".cjs", ".jsx"),
-    "css": (".css",),
-    "html": (".html", ".htm"),
+    "rust": (".rs",),
+    "c++": (".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx", ".h"),
+    "go": (".go",),
 }
 LANGUAGE_ALIASES = {
     "py": "python",
     "python": "python",
     "java": "java",
-    "pl": "perl",
-    "pm": "perl",
-    "perl": "perl",
-    "js": "javascript",
-    "mjs": "javascript",
-    "cjs": "javascript",
-    "jsx": "javascript",
-    "javascript": "javascript",
-    "css": "css",
-    "html": "html",
-    "htm": "html",
+    "rs": "rust",
+    "rust": "rust",
+    "cpp": "c++",
+    "cc": "c++",
+    "cxx": "c++",
+    "hpp": "c++",
+    "hh": "c++",
+    "hxx": "c++",
+    "h": "c++",
+    "c++": "c++",
+    "cplusplus": "c++",
+    "go": "go",
+    "golang": "go",
 }
 SUPPORTED_EXTENSIONS = tuple(
     sorted({ext for extensions in LANGUAGE_EXTENSIONS.values() for ext in extensions})
@@ -97,108 +98,104 @@ LANGUAGE_KEYWORDS: dict[str, set[str]] = {
         "void",
         "while",
     },
-    "perl": {
-        "if",
-        "elsif",
-        "else",
-        "unless",
-        "while",
-        "for",
-        "foreach",
-        "continue",
-        "last",
-        "next",
-        "redo",
-        "my",
-        "our",
-        "local",
-        "sub",
-        "package",
-        "use",
-        "require",
-        "return",
-        "eval",
-        "die",
-        "warn",
-    },
-    "javascript": {
+    "rust": {
+        "as",
         "async",
         "await",
+        "break",
+        "const",
+        "continue",
+        "crate",
+        "else",
+        "enum",
+        "extern",
+        "fn",
+        "for",
+        "if",
+        "impl",
+        "let",
+        "loop",
+        "match",
+        "mod",
+        "move",
+        "mut",
+        "pub",
+        "ref",
+        "return",
+        "self",
+        "Self",
+        "static",
+        "struct",
+        "trait",
+        "type",
+        "unsafe",
+        "use",
+        "where",
+        "while",
+    },
+    "c++": {
+        "auto",
         "break",
         "case",
         "catch",
         "class",
         "const",
+        "constexpr",
         "continue",
         "default",
+        "delete",
         "do",
         "else",
-        "export",
-        "extends",
-        "finally",
+        "enum",
+        "explicit",
         "for",
-        "from",
-        "function",
+        "friend",
         "if",
-        "import",
-        "let",
+        "include",
+        "inline",
+        "namespace",
         "new",
+        "noexcept",
+        "private",
+        "protected",
+        "public",
         "return",
+        "static",
+        "struct",
         "switch",
+        "template",
         "throw",
         "try",
-        "var",
+        "typename",
+        "using",
+        "virtual",
         "while",
-        "yield",
     },
-    "css": {
-        "@media",
-        "@keyframes",
-        "animation",
-        "background",
-        "border",
-        "color",
-        "display",
-        "flex",
-        "font",
-        "grid",
-        "height",
-        "margin",
-        "padding",
-        "position",
-        "width",
-    },
-    "html": {
-        "a",
-        "article",
-        "aside",
-        "body",
-        "button",
-        "div",
-        "footer",
-        "form",
-        "h1",
-        "h2",
-        "h3",
-        "head",
-        "header",
-        "html",
-        "img",
-        "input",
-        "label",
-        "li",
-        "link",
-        "main",
-        "meta",
-        "nav",
-        "ol",
-        "p",
-        "script",
-        "section",
-        "span",
-        "style",
-        "title",
-        "ul",
+    "go": {
+        "break",
+        "case",
+        "chan",
+        "const",
+        "continue",
+        "default",
+        "defer",
+        "else",
+        "fallthrough",
+        "for",
+        "func",
+        "go",
+        "if",
+        "import",
+        "interface",
+        "map",
+        "package",
+        "range",
+        "return",
+        "select",
+        "struct",
+        "switch",
+        "type",
+        "var",
     },
 }
 LANGUAGE_SIGNAL_KEYWORDS: dict[str, dict[str, set[str]]] = {
@@ -220,39 +217,30 @@ LANGUAGE_SIGNAL_KEYWORDS: dict[str, dict[str, set[str]]] = {
         "with": set(),
         "lambda": set(),
     },
-    "perl": {
-        "loop": {"for", "foreach", "while"},
-        "condition": {"if", "elsif", "else", "unless"},
-        "definition": {"sub", "package"},
-        "import": {"use", "require"},
-        "exception": {"eval", "die", "warn"},
+    "rust": {
+        "loop": {"for", "while", "loop"},
+        "condition": {"if", "else", "match"},
+        "definition": {"fn", "struct", "enum", "trait", "impl"},
+        "import": {"use", "mod", "crate"},
+        "exception": {"match", "panic", "unwrap", "expect"},
         "with": set(),
         "lambda": set(),
     },
-    "javascript": {
+    "c++": {
         "loop": {"for", "while", "do"},
         "condition": {"if", "else", "switch", "case"},
-        "definition": {"function", "class"},
-        "import": {"import", "export", "from"},
-        "exception": {"try", "catch", "throw", "finally"},
-        "with": set(),
-        "lambda": {"=>"},
-    },
-    "css": {
-        "loop": set(),
-        "condition": {"@media", "@supports"},
-        "definition": {"@keyframes"},
-        "import": {"@import"},
-        "exception": set(),
+        "definition": {"class", "struct", "enum", "namespace", "template"},
+        "import": {"include", "import", "using"},
+        "exception": {"try", "catch", "throw"},
         "with": set(),
         "lambda": set(),
     },
-    "html": {
-        "loop": set(),
-        "condition": set(),
-        "definition": {"html", "body", "section", "article"},
-        "import": {"script", "link", "style"},
-        "exception": set(),
+    "go": {
+        "loop": {"for", "range"},
+        "condition": {"if", "else", "switch", "case", "select"},
+        "definition": {"func", "type", "struct", "interface"},
+        "import": {"import", "package"},
+        "exception": {"panic", "recover", "defer"},
         "with": set(),
         "lambda": set(),
     },
@@ -266,21 +254,17 @@ COMMENT_SYNTAX: dict[str, dict[str, tuple[str, ...] | tuple[tuple[str, str], ...
         "line": ("//",),
         "block": (("/*", "*/"),),
     },
-    "perl": {
-        "line": ("#",),
-        "block": (),
-    },
-    "javascript": {
+    "rust": {
         "line": ("//",),
         "block": (("/*", "*/"),),
     },
-    "css": {
-        "line": (),
+    "c++": {
+        "line": ("//",),
         "block": (("/*", "*/"),),
     },
-    "html": {
-        "line": (),
-        "block": (("<!--", "-->"),),
+    "go": {
+        "line": ("//",),
+        "block": (("/*", "*/"),),
     },
 }
 
@@ -619,49 +603,47 @@ def _generic_structure_stats(code: str, language: str, tokens: list[str]) -> dic
         lambda_count = code.count("->")
         comprehension_count = 0
         global_count = len(re.findall(r"^\s*package\s+[\w.]+;", code, flags=re.MULTILINE))
-    elif language == "perl":
-        function_count = len(re.findall(r"^\s*sub\s+[A-Za-z_]\w*", code, flags=re.MULTILINE))
-        class_count = len(re.findall(r"^\s*package\s+[A-Za-z_:]\w*", code, flags=re.MULTILINE))
-        import_count = len(re.findall(r"^\s*(?:use|require)\b", code, flags=re.MULTILINE))
-        try_count = len(re.findall(r"\beval\b", code))
-        with_count = 0
-        lambda_count = 0
-        comprehension_count = 0
-        global_count = len(re.findall(r"\bour\b", code))
-    elif language == "javascript":
+    elif language == "rust":
         function_count = len(
             re.findall(
-                r"\bfunction\s+[A-Za-z_$][\w$]*\s*\(|"
-                r"(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|"
-                r"[A-Za-z_$][\w$]*\s*:\s*function\s*\(",
+                r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+[A-Za-z_]\w*\s*\(",
                 code,
+                flags=re.MULTILINE,
             )
         )
-        class_count = len(re.findall(r"\bclass\s+[A-Za-z_$][\w$]*", code))
-        import_count = len(re.findall(r"^\s*(?:import|export)\b", code, flags=re.MULTILINE))
-        try_count = len(re.findall(r"\btry\b", code))
+        class_count = len(re.findall(r"\b(?:struct|enum|trait|impl)\s+[A-Za-z_]\w*", code))
+        import_count = len(re.findall(r"^\s*use\s+[\w:.*{}, ]+;", code, flags=re.MULTILINE))
+        try_count = len(re.findall(r"\b(?:match|panic|unwrap|expect)\b", code)) + code.count("?")
         with_count = 0
-        lambda_count = code.count("=>")
+        lambda_count = len(re.findall(r"\|\s*[^|]*\s*\|", code))
         comprehension_count = 0
-        global_count = len(re.findall(r"\bwindow\.", code))
-    elif language == "css":
-        function_count = 0
-        class_count = len(re.findall(r"\.[A-Za-z_-][A-Za-z0-9_-]*", code))
-        import_count = len(re.findall(r"@import\b", code))
-        try_count = 0
+        global_count = len(re.findall(r"^\s*(?:pub\s+)?(?:static|const)\s+[A-Za-z_]\w*", code, flags=re.MULTILINE))
+    elif language == "c++":
+        function_count = len(
+            re.findall(
+                r"^\s*(?:template\s*<[^>]+>\s*)?"
+                r"(?:(?:inline|virtual|static|constexpr|friend|extern|consteval|constinit)\s+)*"
+                r"(?:[\w:<>~*&]+\s+)+[A-Za-z_~]\w*\s*\([^;{}]*\)\s*(?:const)?\s*(?:noexcept)?\s*\{",
+                code,
+                flags=re.MULTILINE,
+            )
+        )
+        class_count = len(re.findall(r"\b(?:class|struct|enum|namespace)\s+[A-Za-z_]\w*", code))
+        import_count = len(re.findall(r"^\s*#\s*(?:include|import)\b", code, flags=re.MULTILINE))
+        try_count = len(re.findall(r"\b(?:try|catch|throw)\b", code))
         with_count = 0
-        lambda_count = 0
+        lambda_count = len(re.findall(r"\[[^\]]*\]\s*\([^)]*\)\s*\{", code))
         comprehension_count = 0
-        global_count = len(re.findall(r":root\b", code))
-    elif language == "html":
-        function_count = len(re.findall(r"<script\b", code, flags=re.IGNORECASE))
-        class_count = len(re.findall(r'\bclass\s*=\s*["\']', code, flags=re.IGNORECASE))
-        import_count = len(re.findall(r"<(?:script|link|style)\b", code, flags=re.IGNORECASE))
-        try_count = 0
+        global_count = len(re.findall(r"^\s*(?:using\s+namespace|namespace\s+[A-Za-z_]\w*)", code, flags=re.MULTILINE))
+    elif language == "go":
+        function_count = len(re.findall(r"^\s*func\s*(?:\([^)]*\)\s*)?[A-Za-z_]\w*\s*\(", code, flags=re.MULTILINE))
+        class_count = len(re.findall(r"^\s*type\s+[A-Za-z_]\w*\s+(?:struct|interface)\b", code, flags=re.MULTILINE))
+        import_count = len(re.findall(r"^\s*import\b", code, flags=re.MULTILINE))
+        try_count = len(re.findall(r"\bpanic\b|\brecover\b|\bdefer\b|if\s+err\s*!=\s*nil", code))
         with_count = 0
-        lambda_count = 0
+        lambda_count = len(re.findall(r"\bfunc\s*\(", code))
         comprehension_count = 0
-        global_count = len(re.findall(r"<html\b", code, flags=re.IGNORECASE))
+        global_count = len(re.findall(r"^\s*(?:var|const)\s+[A-Za-z_]\w*", code, flags=re.MULTILINE))
     else:
         function_count = _count_matching_keywords(lowered_tokens, signals["definition"])
         class_count = 0
@@ -678,10 +660,7 @@ def _generic_structure_stats(code: str, language: str, tokens: list[str]) -> dic
     activity_count = _count_matching_keywords(lowered_tokens, set().union(*signals.values()))
     heuristic_complexity = activity_count / max(function_count or 1, 1)
 
-    if language == "html":
-        block_depth = _estimate_html_depth(code)
-    else:
-        block_depth = _estimate_delimiter_depth(code)
+    block_depth = _estimate_delimiter_depth(code)
 
     return {
         "ast_node_count": float(len(ast_node_type_sequence(code, language))),
@@ -763,10 +742,10 @@ def extract_code_features(code: str, language: str) -> FeatureResult:
     paren_open_count = code.count("(")
     paren_close_count = code.count(")")
     angle_bracket_count = code.count("<") + code.count(">")
-    block_depth_estimate = _estimate_html_depth(code) if normalized_language == "html" else _estimate_delimiter_depth(code)
+    block_depth_estimate = _estimate_delimiter_depth(code)
 
-    markup_tag_count = len(HTML_TAG_PATTERN.findall(code)) if normalized_language == "html" else 0
-    css_selector_count = len(CSS_RULE_PATTERN.findall(code)) if normalized_language == "css" else 0
+    markup_tag_count = 0
+    css_selector_count = 0
 
     comment_ratio = (comment_lines / line_count) if line_count else 0.0
 
